@@ -1,0 +1,67 @@
+server:
+  port: 8080
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8083/eureka
+spring:
+  application:
+    name: gateway-service
+  cloud:
+    gateway:
+      httpclient:
+          connect-timeout: 1000
+          response-timeout: 6s
+      discovery:
+        locator:
+          enabled: true # default false
+      routes:
+        - id: alien-service-route
+          uri: lb://alien-service #
+          predicates:
+            - Path=/alien-service/api/**
+          filters:
+            - RewritePath=/alien-service/api/(?<segment>/?.*), /api/$\{segment}
+        - id: alien-service-delay-route
+          uri: lb://alien-service #
+          predicates:
+            - Path=/delay
+          filters:
+            - name: Hystrix
+              args:
+                name: fallbackcmd
+                fallbackUri: forward:/fallback
+        - id: alien-service-fallback-route
+          uri: lb://alien-service #
+          predicates:
+            - Path=/fallback
+        - id: rewritepath_route_rapid_api
+          uri: https://ajayakv-rest-countries-v1.p.rapidapi.com
+          predicates:
+            - Path=/country-api/**
+          filters:
+            - RewritePath=/country-api(?<segment>/?.*), /rest/v1/all/$\{segment}
+            - AddRequestHeader=x-rapidapi-host, ajayakv-rest-countries-v1.p.rapidapi.com
+            - AddRequestHeader=x-rapidapi-key, 8f1e747502msh94c28eaa5085810p166182jsn769e7e5b9fd3
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+        - hystrix.stream
+
+# hystrix:
+#   command:
+#     fallbackcmd:
+#       isolation:
+#         thread:
+#           timeoutInMilliseconds: 6000
+
+logging:
+  level:
+    reactor:
+      netty: INFO
+    org:
+      springframework:
+        cloud:
+          gateway: TRACE
